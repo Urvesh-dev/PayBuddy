@@ -1,0 +1,52 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: paybuddy-db
+    environment:
+      POSTGRES_USER: paybuddy
+      POSTGRES_PASSWORD: paybuddy
+      POSTGRES_DB: paybuddy
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paybuddy -d paybuddy"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - paybuddy-net
+
+  backend:
+    build: ./backend
+    container_name: paybuddy-backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://paybuddy:paybuddy@db:5432/paybuddy
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000,http://localhost
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - paybuddy-net
+    restart: on-failure
+
+  frontend:
+    build: ./frontend
+    container_name: paybuddy-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - paybuddy-net
+
+networks:
+  paybuddy-net:
+    driver: bridge
+
+volumes:
+  pgdata:
